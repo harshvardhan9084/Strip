@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0B0B0F">
+<title>Strip</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="css/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+</head>
+<body>
+
+<div id="hud">
+  <div id="hud-title">STRIP</div>
+  <div id="hud-index">01</div>
+</div>
+
+<main id="strip" tabindex="0" aria-label="Infinite mini-game strip">
+  <!-- Cartridge panels injected here by js/app.js -->
+</main>
+
+<div id="boot">
+  <div id="boot-logo">STRIP</div>
+  <div id="boot-sub">loading cartridges…</div>
+</div>
+
+<script src="js/registry.js"></script>
+<script src="js/games/bubblewrap.js"></script>
+<script src="js/games/sandbox2048.js"></script>
+<script src="js/games/colorsnap.js"></script>
+<script src="js/games/anthill.js"></script>
+<script src="js/games/spinner.js"></script>
+<script src="js/games/etch.js"></script>
+<script src="js/app.js"></script>
+<script>
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
