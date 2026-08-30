@@ -1,0 +1,58 @@
+(function(){
+  const overlay = document.getElementById("settings-overlay");
+  const openBtn = document.getElementById("settings-btn");
+  const closeBtn = document.getElementById("settings-close");
+  const toggles = Array.from(document.querySelectorAll(".setting-toggle"));
+  const clearBtn = document.getElementById("clear-progress-btn");
+  const lockBtn = document.getElementById("lock-btn");
+  const lockToast = document.getElementById("lock-toast");
+
+  function openPanel(){
+    overlay.classList.add("show");
+  }
+  function closePanel(){
+    overlay.classList.remove("show");
+  }
+
+  openBtn.addEventListener("click", openPanel);
+  closeBtn.addEventListener("click", closePanel);
+  overlay.addEventListener("click", (e) => { if(e.target === overlay) closePanel(); });
+
+  function syncToggles(settings){
+    toggles.forEach(t => { t.checked = !!settings[t.dataset.key]; });
+    lockBtn.setAttribute("aria-pressed", settings.lockScroll ? "true" : "false");
+  }
+
+  toggles.forEach(t => {
+    t.addEventListener("change", () => {
+      Settings.set({ [t.dataset.key]: t.checked });
+    });
+  });
+
+  let toastTimer = null;
+  function showLockToast(locked){
+    lockToast.textContent = locked ? "Scroll locked" : "Scroll unlocked";
+    lockToast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => lockToast.classList.remove("show"), 1400);
+  }
+
+  lockBtn.addEventListener("click", () => {
+    const next = !Settings.get().lockScroll;
+    Settings.set({ lockScroll: next });
+    showLockToast(next);
+    Feedback.haptic("light");
+  });
+
+  clearBtn.addEventListener("click", () => {
+    if(!confirm("Erase all game progress and highscores? This can't be undone.")) return;
+    StripDB.clearAll().then(() => {
+      clearBtn.textContent = "Cleared ✓";
+      setTimeout(() => { clearBtn.textContent = "Clear all progress"; }, 1800);
+    });
+  });
+
+  // reflect settings changes made anywhere (e.g. the lock button) back into the panel toggles
+  Settings.onChange(syncToggles);
+  Settings.whenReady().then(() => syncToggles(Settings.get()));
+})();

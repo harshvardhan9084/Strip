@@ -1,0 +1,172 @@
+/**
+ * STRIP — Storage (IndexedDB)
+ * ---------------------------
+ * Replaces localStorage. Two object stores:
+ *   - "state"      : { id: gameId, data: <any JSON-safe value>, updatedAt }
+ *   - "highscores"  : { id: gameId, best: number, history: number[] (capped), updatedAt }
+ *
+ * Exposes a promise-based API. Falls back to an in-memory Map if IndexedDB
+ * is unavailable (private browsing edge cases, very old browsers) so games
+ * never crash — they just won't persist for that session.
+ */
+window.StripDB = (function(){
+  const DB_NAME = "strip-db";
+  const DB_VERSION = 1;
+  const STATE_STORE = "state";
+  const SCORE_STORE = "highscores";
+  const HISTORY_CAP = 20; // keep last N scores per game, not unbounded — this is what keeps growth predictable long-term
+
+  let dbPromise = null;
+  let memoryFallback = null; // Map<storeName, Map<id, record>>
+
+  function useFallback(){
+    if(!memoryFallback){
+      memoryFallback = new Map([[STATE_STORE, new Map()], [SCORE_STORE, new Map()]]);
+    }
+    return memoryFallback;
+  }
+
+  function openDB(){
+    if(dbPromise) return dbPromise;
+    dbPromise = new Promise((resolve) => {
+      if(typeof indexedDB === "undefined" || !indexedDB){
+        resolve(null);
+        return;
+      }
+      try{
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if(!db.objectStoreNames.contains(STATE_STORE)){
+            db.createObjectStore(STATE_STORE, { keyPath: "id" });
+          }
+          if(!db.objectStoreNames.contains(SCORE_STORE)){
+            db.createObjectStore(SCORE_STORE, { keyPath: "id" });
+          }
+        };
+        req.onsuccess = (e) => resolve(e.target.result);
+        req.onerror = () => resolve(null); // treat failure as "no IDB", triggers fallback
+      }catch(e){
+        resolve(null); // some browsers throw synchronously when IDB is blocked (e.g. strict private mode)
+      }
+    });
+    return dbPromise;
+  }
+
+  function tx(storeName, mode){
+    return openDB().then(db => {
+      if(!db) return null;
+      return db.transaction(storeName, mode).objectStore(storeName);
+    });
+  }
+
+  // ---- generic key/value state (per game) ----
+  function saveState(id, data){
+    return tx(STATE_STORE, "readwrite").then(store => {
+      const record = { id, data, updatedAt: Date.now() };
+      if(!store){
+        useFallback().get(STATE_STORE).set(id, record);
+        return true;
+      }
+      return new Promise((resolve) => {
+        const req = store.put(record);
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => resolve(false);
+      });
+    });
+  }
+
+  function loadState(id){
+    return tx(STATE_STORE, "readonly").then(store => {
+      if(!store){
+        const rec = useFallback().get(STATE_STORE).get(id);
+        return rec ? rec.data : null;
+      }
+      return new Promise((resolve) => {
+        const req = store.get(id);
+        req.onsuccess = () => resolve(req.result ? req.result.data : null);
+        req.onerror = () => resolve(null);
+      });
+    });
+  }
+
+  // ---- highscores (separate store, capped history so size stays bounded) ----
+  function getHighscore(id){
+    return tx(SCORE_STORE, "readonly").then(store => {
+      if(!store){
+        const rec = useFallback().get(SCORE_STORE).get(id);
+        return rec ? rec.best : 0;
+      }
+      return new Promise((resolve) => {
+        const req = store.get(id);
+        req.onsuccess = () => resolve(req.result ? req.result.best : 0);
+        req.onerror = () => resolve(0);
+      });
+    });
+  }
+
+  function setHighscore(id, score){
+    return tx(SCORE_STORE, "readwrite").then(store => {
+      const apply = (existing) => {
+        const best = Math.max(existing?.best || 0, score);
+        const history = (existing?.history || []).concat(score).slice(-HISTORY_CAP);
+        return { id, best, history, updatedAt: Date.now() };
+      };
+      if(!store){
+        const map = useFallback().get(SCORE_STORE);
+        const record = apply(map.get(id));
+        map.set(id, record);
+        return record.best;
+      }
+      return new Promise((resolve) => {
+        const getReq = store.get(id);
+        getReq.onsuccess = () => {
+          const record = apply(getReq.result);
+          const putReq = store.put(record);
+          putReq.onsuccess = () => resolve(record.best);
+          putReq.onerror = () => resolve(record.best);
+        };
+        getReq.onerror = () => resolve(score);
+      });
+    });
+  }
+
+  // rough total footprint estimate, for a future "storage used" display if wanted
+  function estimateUsage(){
+    if(navigator.storage && navigator.storage.estimate){
+      return navigator.storage.estimate();
+    }
+    return Promise.resolve(null);
+  }
+
+  // full wipe — used by the "Clear all progress" setting. Clears all game
+  // saves and all highscores, but explicitly preserves the app's own settings
+  // record (a reserved id inside the "state" store) — clearing your game
+  // progress should never silently reset your scroll-lock/sound/motion
+  // preferences too. We read it before clearing and write it back after.
+  const SETTINGS_KEY = "__app_settings__";
+
+  function clearAll(){
+    return loadState(SETTINGS_KEY).then(preservedSettings => {
+      return Promise.all([STATE_STORE, SCORE_STORE].map(storeName =>
+        tx(storeName, "readwrite").then(store => {
+          if(!store){
+            useFallback().get(storeName).clear();
+            return true;
+          }
+          return new Promise(resolve => {
+            const req = store.clear();
+            req.onsuccess = () => resolve(true);
+            req.onerror = () => resolve(false);
+          });
+        })
+      )).then(() => {
+        if(preservedSettings){
+          return saveState(SETTINGS_KEY, preservedSettings);
+        }
+      });
+    });
+  }
+
+  return { saveState, loadState, getHighscore, setHighscore, estimateUsage, clearAll };
+})();
