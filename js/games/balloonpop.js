@@ -1,0 +1,117 @@
+Strip.register({
+  id: "balloonpop",
+  label: "REFLEX",
+  title: "Balloon Pop",
+  tag: "60s",
+  hint: "Pop balloons, avoid the bombs",
+  async mount(container, api){
+    let best = await api.getHighscore();
+    const ROUND_MS = 60000;
+
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "display:flex; flex-direction:column; align-items:center; gap:10px; width:100%;";
+
+    const statRow = document.createElement("div");
+    statRow.style.cssText = "display:flex; gap:16px; font-family:var(--font-display); font-size:10px; color:var(--ink-dim);";
+    statRow.innerHTML = `<div>SCORE <span id="bp-score" style="color:var(--amber)">0</span></div><div>TIME <span id="bp-time" style="color:var(--purple)">60</span></div><div>BEST <span id="bp-best" style="color:var(--ink)">${best}</span></div>`;
+    wrap.appendChild(statRow);
+
+    const field = document.createElement("div");
+    field.style.cssText = "position:relative; width:min(78vw,280px); height:min(50vh,320px); background:#12121a; border-radius:14px; overflow:hidden;";
+    wrap.appendChild(field);
+
+    const startBtn = document.createElement("button");
+    startBtn.className = "btn accent";
+    startBtn.textContent = "Start";
+    wrap.appendChild(startBtn);
+
+    container.appendChild(wrap);
+
+    const COLORS = ["#E8637F","#FFB347","#8B7FE8","#6FCF97","#56B4E9"];
+    let running = false, score = 0, timeLeft = 60, spawnTimer = null, countdownTimer = null, activeEls = [];
+
+    function spawnItem(){
+      if(!running) return;
+      const isBomb = Math.random() < 0.18;
+      const el = document.createElement("div");
+      const size = 34 + Math.random()*14;
+      el.textContent = isBomb ? "💣" : "🎈";
+      el.style.cssText = `
+        position:absolute; left:${Math.random()*80}%; bottom:-40px;
+        font-size:${size}px; cursor:pointer; user-select:none;
+        filter:${isBomb ? "none" : `hue-rotate(${Math.random()*360}deg)`};
+        transition:bottom ${3 + Math.random()*2}s linear;
+      `;
+      field.appendChild(el);
+      activeEls.push(el);
+      requestAnimationFrame(() => { el.style.bottom = "110%"; });
+
+      const cleanup = () => {
+        el.remove();
+        activeEls = activeEls.filter(e => e !== el);
+      };
+      const timeout = setTimeout(cleanup, 5200);
+
+      el.addEventListener("click", () => {
+        clearTimeout(timeout);
+        if(isBomb){
+          score = Math.max(0, score - 3);
+          Feedback.buzz("error");
+        } else {
+          score += 1;
+          Feedback.tone("pop"); Feedback.haptic("light");
+        }
+        document.getElementById("bp-score").textContent = score;
+        cleanup();
+      });
+    }
+
+    // Independent spawn loop, decoupled from any single item's lifecycle — this is
+    // what actually keeps a continuous stream of balloons coming. The old version
+    // chained the next spawn from inside spawnItem() through one shared timer
+    // variable, so only one item's lifecycle was ever "in flight" driving spawns.
+    function spawnLoop(){
+      if(!running) return;
+      spawnItem();
+      spawnTimer = setTimeout(spawnLoop, 420 + Math.random()*380);
+    }
+
+    function tickCountdown(){
+      timeLeft--;
+      document.getElementById("bp-time").textContent = timeLeft;
+      if(timeLeft <= 0) endGame();
+    }
+
+    function endGame(){
+      running = false;
+      Feedback.tone("toggle");
+      clearTimeout(spawnTimer);
+      clearInterval(countdownTimer);
+      activeEls.forEach(el => el.remove());
+      activeEls = [];
+      startBtn.textContent = "Play again";
+      startBtn.disabled = false;
+      api.setHighscore(score).then(v => {
+        best = v;
+        document.getElementById("bp-best").textContent = best;
+      });
+    }
+
+    function start(){
+      score = 0; timeLeft = 60; running = true;
+      document.getElementById("bp-score").textContent = 0;
+      document.getElementById("bp-time").textContent = 60;
+      startBtn.disabled = true;
+      startBtn.textContent = "Popping…";
+      spawnLoop();
+      countdownTimer = setInterval(tickCountdown, 1000);
+    }
+
+    startBtn.addEventListener("click", start);
+
+    return () => {
+      clearTimeout(spawnTimer);
+      clearInterval(countdownTimer);
+    };
+  }
+});
