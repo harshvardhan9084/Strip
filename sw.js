@@ -1,90 +1,97 @@
-const CACHE = "strip-v7";
-const ASSETS = [
-  "./",
-  "./index.html",
-  "./manifest.json",
-  "./css/style.css",
-  "./js/storage.js",
-  "./js/settings.js",
-  "./js/settings-ui.js",
-  "./js/registry.js",
-  "./js/app.js",
-  "./js/games/anthill.js",
-  "./js/games/aquarium.js",
-  "./js/games/artillery.js",
-  "./js/games/balloonpop.js",
-  "./js/games/blobmerge.js",
-  "./js/games/breakglass.js",
-  "./js/games/breathe.js",
-  "./js/games/bubbleshoot.js",
-  "./js/games/bubblewrap.js",
-  "./js/games/chainlink.js",
-  "./js/games/colormix.js",
-  "./js/games/colorsnap.js",
-  "./js/games/etch.js",
-  "./js/games/flapdot.js",
-  "./js/games/garden.js",
-  "./js/games/kaleidoscope.js",
-  "./js/games/kingdom.js",
-  "./js/games/lightsout.js",
-  "./js/games/maze.js",
-  "./js/games/memorymatch.js",
-  "./js/games/minisudoku.js",
-  "./js/games/papercrumple.js",
-  "./js/games/petrock.js",
-  "./js/games/physicsdrop.js",
-  "./js/games/plinko.js",
-  "./js/games/randomfact.js",
-  "./js/games/reaction.js",
-  "./js/games/rhythmtap.js",
-  "./js/games/sandbox2048.js",
-  "./js/games/sanddrag.js",
-  "./js/games/simonsays.js",
-  "./js/games/slidepuzzle.js",
-  "./js/games/snake.js",
-  "./js/games/spinner.js",
-  "./js/games/stacktower.js",
-  "./js/games/talktowall.js",
-  "./js/games/thebutton.js",
-  "./js/games/thisorthat.js",
-  "./js/games/tonepad.js",
-  "./js/games/towerdefense.js",
-  "./js/games/tradingpost.js",
-  "./js/games/trivia.js",
-  "./js/games/typespeed.js",
-  "./js/games/unscramble.js",
-  "./js/games/whackmole.js",
-  "./js/games/wouldyourather.js",
-  "./js/games/xox.js",
+const SHELL_CACHE = 'strip-shell-v1';
+const RUNTIME_CACHE = 'strip-runtime-v1';
+
+const SHELL_ASSETS = [
+  './',
+  './index.html',
+  './manifest.json',
+  './offline.html',
+  './css/style.css',
+  './js/storage.js',
+  './js/settings.js',
+  './js/settings-ui.js',
+  './js/registry.js',
+  './js/app.js',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
 ];
 
-self.addEventListener("install", (e) => {
-  e.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+// simple helper to limit runtime cache size (optional)
+async function trimCache(cacheName, maxItems) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  if (keys.length > maxItems) {
+    await cache.delete(keys[0]);
+  }
+}
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(SHELL_CACHE).then(cache => cache.addAll(SHELL_ASSETS)).then(() => self.skipWaiting())
   );
 });
 
-self.addEventListener("activate", (e) => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys => Promise.all(
+      keys.filter(k => k !== SHELL_CACHE && k !== RUNTIME_CACHE).map(k => caches.delete(k))
+    )).then(() => self.clients.claim())
   );
 });
 
-self.addEventListener("fetch", (e) => {
-  if(e.request.method !== "GET") return;
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if(cached) return cached;
-      return fetch(e.request).then(res => {
-        // don't cache google fonts CDN failures etc, only same-origin ok responses
-        if(res.ok && e.request.url.startsWith(self.location.origin)){
-          const clone = res.clone();
-          caches.open(CACHE).then(cache => cache.put(e.request, clone));
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+  const req = event.request;
+  const url = new URL(req.url);
+
+  // Navigation requests: try network first, then cache, then offline page
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req).then(resp => {
+        // update shell cache with fresh navigation responses if same-origin
+        if (resp && resp.ok && url.origin === self.location.origin) {
+          const copy = resp.clone();
+          caches.open(SHELL_CACHE).then(c => c.put(req, copy)).catch(() => {});
         }
-        return res;
-      }).catch(() => cached);
-    })
-  );
+        return resp;
+      }).catch(() => caches.match('./offline.html'))
+    );
+    return;
+  }
+
+  // Runtime caching strategy for game scripts and dynamic assets under /js/games/
+  if (url.pathname.startsWith('/js/games/') || url.pathname.startsWith('js/games/')) {
+    event.respondWith(
+      fetch(req).then(networkResp => {
+        if (networkResp && networkResp.ok && url.origin === self.location.origin) {
+          const clone = networkResp.clone();
+          caches.open(RUNTIME_CACHE).then(cache => {
+            cache.put(req, clone);
+            // keep runtime cache small
+            trimCache(RUNTIME_CACHE, 60);
+          });
+        }
+        return networkResp;
+      }).catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // For other same-origin requests: cache-first, then network
+  if (url.origin === self.location.origin) {
+    event.respondWith(
+      caches.match(req).then(cached => cached || fetch(req).then(networkResp => {
+        // cache a copy for future
+        if (networkResp && networkResp.ok) {
+          const clone = networkResp.clone();
+          caches.open(RUNTIME_CACHE).then(cache => cache.put(req, clone));
+        }
+        return networkResp;
+      }).catch(() => cached))
+    );
+    return;
+  }
+
+  // Cross-origin requests: fallback to network (don't cache)
+  event.respondWith(fetch(req).catch(() => caches.match(req)));
 });
