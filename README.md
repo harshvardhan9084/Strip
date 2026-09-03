@@ -1,128 +1,124 @@
 # Strip
 
-Repository description: this game needs developer + gamer
+An endless strip of tiny games. You scroll, a game shows up, you play for half a minute, you scroll again. That's the whole idea. It's called Strip because it's literally a strip of games.
 
-Strip is a browser-first collection of short, lightweight JavaScript "cartridge" games delivered as a single web app. It already contains a large number of small games and the runtime that loads them in an infinite strip UI.
+**Play it right now: https://harshvardhan9084.github.io/strip**
 
-What is in this repository (accurate to the current main branch)
----------------------------------------------------------------
-- Root web app entry: `index.html`
-- Progressive Web App files: `manifest.json`, `sw.js`
-- Styling under `css/` (CSS files)
-- App and runtime scripts under `js/`
-  - Core runtime files (examples): `js/app.js`, `js/registry.js`, `js/settings.js`, `js/settings-ui.js`, `js/storage.js`, `js/feedback.js`, `js/shufflebag.js`
-  - Game cartridges live in `js/games/` — each cartridge is a self-contained JavaScript file that the app injects into the strip UI.
+Nothing to download. Nothing to sign up for. Open the link and you're playing.
 
-Games included (files under `js/games/` in this repo)
------------------------------------------------------
-The repository currently includes many small games (listed by filename):
+## Why I built this
 
-- anthill
-- aquarium
-- artillery
-- balloonpop
-- blobmerge
-- breakglass
-- breathe
-- bubbleshoot
-- bubblewrap
-- chainlink
-- colormix
-- colorsnap
-- etch
-- flapdot
-- garden
-- kaleidoscope
-- kingdom
-- lightsout
-- maze
-- memorymatch
-- minisudoku
-- papercrumple
-- petrock
-- physicsdrop
-- plinko
-- randomfact
-- reaction
-- rhythmtap
-- sandbox2048
-- sanddrag
-- simonsays
-- slidepuzzle
-- snake
-- spinner
-- stacktower
-- talktowall
-- thebutton
-- thisorthat
-- tonepad
-- towerdefense
-- tradingpost
-- trivia
-- typespeed
-- unscramble
-- whackmole
-- wouldyourather
-- xox
+Every tiny game I liked was trapped inside some big app. One game, five popups, an ad every two minutes, and a login screen asking for my email before it lets me pop a single balloon.
 
-(Each above corresponds to `js/games/<name>.js` in the current branch.)
+So I built the opposite. One dark little page, one endless strip, and a bunch of small games sitting on it like old cartridges. Scroll down, the next game slides in. Get bored, scroll again. No ads, no accounts, no server somewhere watching you. Your scores and progress stay on your own device, and honestly, that's how it should be.
 
-Vision — (from repository owner)
---------------------------------
-Your stated vision: make this a very large open-source platform that hosts millions of quick games over time, contributed by developers who are "gamers at heart." This README documents the current state and provides guidance for contributors so the project can grow toward that vision. I have not invented features or history — the README only reflects files currently present in the repository.
+It's plain HTML, CSS and JavaScript. No frameworks, no build steps, none of that. You can read the whole thing in an afternoon, and I encourage you to.
 
-Getting started (run locally)
------------------------------
-1. Clone the repo:
+## Playing it (this part is for everyone)
 
-   git clone https://github.com/harshvardhan9084/strip.git
-   cd strip
+Open **https://harshvardhan9084.github.io/strip** on your phone or laptop and play. That's it, that's the tutorial.
 
-2. Open `index.html` in a modern browser, or serve the folder with a static server (recommended to enable service worker/dev features):
+If you like it, install it. It's a PWA, which is a fancy way of saying: it installs like a normal app and runs without internet.
 
-   npx http-server .
+- On the site, tap the **Install** button (or browser menu, then "Install app" / "Add to Home screen").
+- Now Strip lives on your home screen like any other app.
+- Once it's installed and has run with internet once, it works **fully offline** from then on. Flight mode, metro tunnels, wifi that died mid-month. Doesn't matter. It opens and plays.
 
-   or
+Your saves and high scores live on your device. I can't see them. Nobody can.
 
-   python -m http.server 8000
+## What's on the strip right now
 
-3. The app will load the runtime and the cartridges placed in `js/games/`.
+47 cartridges at the moment. A rough mix:
 
-Development notes
------------------
-- Each game is a standalone JavaScript file that registers itself with the runtime (see `js/registry.js`). If you add a new game cartridge, follow the existing cartridge files as examples and include it in `index.html` (or update the loader to auto-discover).
-- Settings and persistence are handled by `js/settings.js` and `js/storage.js`.
-- The app attempts to be installable as a PWA using `manifest.json` and `sw.js`.
+- **The classics:** Snake, Mini 2048, Mini Sudoku, Maze, Slide Puzzle, Lights Out, Memory Match, Sequence (Simon Says), Bubble Shooter, Whack-a-Mole, XOX
+- **Fidgets and toys:** Bubble Wrap, Sand Drag, Kaleidoscope, Crumple Paper, Spinner, Break Glass, Etch Pad, Tone Pad, Color Lab
+- **Quick hits:** Reaction Time, Type Speed, Color Snap, Balloon Pop, Flap Dot, Stack Tower, Plinko, Rhythm Tap, Gravity Drop, Blob Merge
+- **Slow burns:** Tower Defense, Kingdom, Trading Post, Ant Colony, Garden, Tiny Aquarium, Artillery Duel, Chain Link
+- **The weird ones:** Pet Rock (a rock that needs nothing from you, and that's the point), Talk to a Wall (it will not help), The Button, Would You Rather, This or That, Random Fact, Breathe, Unscramble, Quick Trivia, Color Snap
 
-Contributing
-------------
-If you want this repository to become the large, community-driven catalogue you described, here's a minimal contribution workflow:
+Half of these are strange on purpose. That's not a bug.
 
-1. Fork the repo and create a branch: `git checkout -b feature/<your-feature>`.
-2. Add a small, self-contained game under `js/games/` (name the file `<yourgame>.js`). Keep the file focused and well-documented.
-3. Add any assets under `public/` or `css/` as needed. Avoid large binary files in the main branch; prefer hosting assets in an `assets/` folder and keep sizes small.
-4. Update `index.html` or the loader to include your cartridge, and add a short README snippet documenting the game.
-5. Open a Pull Request describing the game, gameplay, and any controls. Explain how it registers with the runtime.
+## Now, the part I actually care about
 
-Guidelines for game cartridges
-------------------------------
-- Small and self-contained: a cartridge should not require a complex build step.
-- Respect global namespace: prefer registering via the runtime's registration API instead of polluting globals.
-- Keep assets minimal and optimized.
-- Include a short header comment describing the game, controls, and author.
+The repo description says it in five words: **this game needs developer + gamer.**
 
-Next steps I can help with
--------------------------
-- Improve this README further (add badges, contribution templates, code of conduct, issue templates).
-- Add a simple CONTRIBUTING.md or a template for game cartridges so new contributors have a clear starter.
-- Make the game loader auto-discover `js/games/` instead of hardcoding scripts in `index.html`.
+Here's my intent, plain and simple. I want Strip to grow into a huge open-source collection of quick games. Not tens, not hundreds. Millions of little cartridges over time, made by people who are gamers at heart and write code because it's fun, not because a sprint board told them to.
 
-License
--------
-No license file was found in the repository. To allow others to reuse and contribute, add a LICENSE file (for example MIT, Apache-2.0). If you want, I can add one for you — tell me which license you prefer.
+I've already built the boring parts so you don't have to:
 
-Contact / Links
----------------
-- Repo: https://github.com/harshvardhan9084/strip
-- Owner: https://github.com/harshvardhan9084
+- the endless strip that scrolls card after card without breaking a sweat (`js/app.js`)
+- saving and high scores, handled for you, no setup (`js/storage.js`)
+- sound and vibration that respect whatever the player turned on or off (`js/feedback.js`)
+- the whole install and offline thing (`manifest.json`, `sw.js`)
+- settings, the dark look, the shell around your game
 
+What's missing is the fun part. Your game.
+
+## Adding your own game is genuinely easy
+
+Every game on the strip is one JavaScript file. One file, that's the entire game. It tells the app "here I am" and everything else just works:
+
+```js
+// js/games/mygame.js
+Strip.register({
+  id: "mygame",          // unique name, used to save progress
+  label: "PUZZLE",       // small tag above the title
+  title: "My Game",
+  tag: "⏱ 30s",          // little pill on the top right
+  hint: "Tap the dot",   // one instruction line at the bottom
+  mount(container, api){
+    // build your game inside `container`
+    // api.save(...) / api.load() keeps player progress
+    // api.getHighscore() / api.setHighscore(...) if your game keeps score
+    // return a cleanup function (optional) and the app handles the rest
+  }
+});
+```
+
+Then add one line in `index.html` next to the other games:
+
+```html
+<script src="js/games/mygame.js"></script>
+```
+
+Done. Your game is on the strip. It saves progress, works offline, shows up between Kingdom and Pet Rock for every single player. No config, no permissions, no asking me.
+
+The best way to start: open any file in `js/games/`, most are a few hundred lines, pick one that feels close to your idea, copy it, and start messing with it. That's how I build them too.
+
+## Run it on your machine
+
+```
+git clone https://github.com/harshvardhan9084/strip.git
+cd strip
+python -m http.server 8000
+```
+
+Open http://localhost:8000 in your browser. No npm install. No build. They're just files.
+
+## House rules (small list, keeps the strip fast)
+
+- One game = one file in `js/games/`. Keep it small.
+- No frameworks, no build step, no huge assets.
+- Use the shared helpers: `api` for saves, `Feedback` for sound and vibration, `ShuffleBag` when you need randomness that doesn't repeat.
+- A game should be fun within seconds. People open this on trains, in queues, while hiding from their boss.
+- Weird ideas are welcome. Look at Pet Rock. There are no rules about taste here.
+
+When it plays, send a pull request. Tell me what the game is and how to play it, and I'll take it from there.
+
+## Not a developer? You still count
+
+- Got a game idea? Open an issue and describe it. Some of my best cartridges started as dumb ideas typed at 1 AM.
+- Found a game that feels broken on your phone? Tell me which phone and what happened. That's a real bug report, don't let anyone tell you otherwise.
+- Just share the link with one bored person. That helps more than you think.
+
+## License
+
+I haven't picked a formal license yet, MIT most likely. If you want to use the code before that's sorted, open an issue and ask. I'm easy to reach.
+
+---
+
+Play: https://harshvardhan9084.github.io/strip
+Repo: https://github.com/harshvardhan9084/strip
+Me: https://github.com/harshvardhan9084
+
+One developer, too many small game ideas. Come build the pile with me.
